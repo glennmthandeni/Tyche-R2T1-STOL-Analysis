@@ -1,0 +1,25 @@
+...Comp Geom...
+11 Num Comps
+16 Total Num Meshes
+13888 Total Num Tris
+
+Theo_Area   Wet_Area   Theo_Vol    Wet_Vol  Name
+   48.448     44.483     16.748     16.420  Fuselage       
+   62.635     58.488      6.487      6.468  MainWing       
+   17.497     16.074      0.965      0.947  HTail          
+    8.547      7.917      0.488      0.483  VTail          
+    4.254      3.718      0.628      0.586  Nacelle_R      
+    4.254      3.718      0.628      0.586  Nacelle_L      
+    2.223      2.130      0.031      0.031  LiftStrut_Pair 
+    2.223      2.130      0.031      0.031  LiftStrut_Pair 
+    0.591      0.486      0.009      0.008  MainGearLeg_Pair
+    0.591      0.486      0.009      0.008  MainGearLeg_Pair
+    0.687      0.681      0.050      0.050  MainWheel_Pair 
+    0.687      0.681      0.050      0.050  MainWheel_Pair 
+    0.227      0.137      0.003      0.002  NoseGearLeg    
+    0.466      0.460      0.028      0.028  NoseWheel      
+-------------------------------------------------
+  153.330    141.591     26.154     25.696  Totals         
+WARNING: 2 open meshes merged
+     Merged: MainWing
+     Merged: HTail
