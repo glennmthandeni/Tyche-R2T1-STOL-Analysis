@@ -1,0 +1,55 @@
+...Comp Geom...
+11 Num Comps
+16 Total Num Meshes
+13888 Total Num Tris
+
+Theo_Area   Wet_Area   Theo_Vol    Wet_Vol  Name
+   48.448     44.483     16.748     16.420  Fuselage       
+   31.318     29.244      3.243      3.234  MainWing       
+   31.318     29.244      3.243      3.234  MainWing       
+    8.749      8.037      0.483      0.473  HTail          
+    8.749      8.037      0.483      0.473  HTail          
+    8.547      7.917      0.488      0.483  VTail          
+    4.254      3.718      0.628      0.586  Nacelle_R      
+    4.254      3.718      0.628      0.586  Nacelle_L      
+    2.223      2.130      0.031      0.031  LiftStrut_Pair 
+    2.223      2.130      0.031      0.031  LiftStrut_Pair 
+    0.591      0.486      0.009      0.008  MainGearLeg_Pair
+    0.591      0.486      0.009      0.008  MainGearLeg_Pair
+    0.687      0.681      0.050      0.050  MainWheel_Pair 
+    0.687      0.681      0.050      0.050  MainWheel_Pair 
+    0.227      0.137      0.003      0.002  NoseGearLeg    
+    0.466      0.460      0.028      0.028  NoseWheel      
+-------------------------------------------------
+  153.330    141.591     26.154     25.696  Totals         
+
+Tag_Theo_Area   Tag_Wet_Area    Tag_Name
+       48.448         44.483    Fuselage_S_Surf0
+       24.342         22.336    MainWing_S_Surf0
+       24.342         22.336    MainWing_S_Surf1
+        5.644          5.122    HTail_S_Surf0  
+        5.644          5.122    HTail_S_Surf1  
+        5.124          4.679    VTail_S_Surf0  
+        4.254          3.718    Nacelle_R_S_Surf0
+        4.254          3.718    Nacelle_L_S_Surf0
+        2.223          2.130    LiftStrut_Pair_S_Surf0
+        2.223          2.130    LiftStrut_Pair_S_Surf1
+        0.591          0.486    MainGearLeg_Pair_S_Surf0
+        0.591          0.486    MainGearLeg_Pair_S_Surf1
+        0.687          0.681    MainWheel_Pair_S_Surf0
+        0.687          0.681    MainWheel_Pair_S_Surf1
+        0.227          0.137    NoseGearLeg_S_Surf0
+        0.466          0.460    NoseWheel_S_Surf0
+        0.832          0.832    MainWing_S_Surf0,SS_CONT_0
+        6.144          6.076    MainWing_S_Surf0,SS_CONT_1
+        0.832          0.832    MainWing_S_Surf1,SS_CONT_0
+        6.144          6.076    MainWing_S_Surf1,SS_CONT_1
+        3.104          2.915    HTail_S_Surf0,SS_CONT_0
+        3.104          2.915    HTail_S_Surf1,SS_CONT_0
+        3.423          3.238    VTail_S_Surf0,SS_CONT_0
+
+ SS_Theo_Area    SS_Wet_Area    SS_Name
+        1.664          1.664    MainWing,SS_CONT_0
+       12.288         12.153    MainWing,SS_CONT_1
+        6.209          5.831    HTail,SS_CONT_0
+        3.423          3.238    VTail,SS_CONT_0
