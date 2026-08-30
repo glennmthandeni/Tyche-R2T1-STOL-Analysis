@@ -1,0 +1,19 @@
+
+***************************************************************************************************************************************************************************************** 
+
+# Name                   Value      Units             
+Sref_                  30.0000034 Lunit^2             
+Cref_                   1.8810000 Lunit               
+Bref_                  16.4000000 Lunit               
+Xcg_                    3.7500000 Lunit               
+Ycg_                    0.0000000 Lunit               
+Zcg_                    0.0000000 Lunit               
+Mach_                   0.2030000 no_unit             
+AoA_                    4.0000000 deg                 
+Beta_                   0.0000000 deg                 
+Rho_                    0.0023770 Munit/Lunit^3       
+Vinf_                 100.0000000 Lunit/Tunit         
+Roll__Rate              0.0000000 rad/Tunit           
+Pitch_Rate              0.0000000 rad/Tunit           
+Yaw___Rate              0.0000000 rad/Tunit           
+
