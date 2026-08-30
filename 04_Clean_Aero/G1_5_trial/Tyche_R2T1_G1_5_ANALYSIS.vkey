@@ -1,0 +1,21 @@
+# VSPGEOM v3 Tag Key File
+C:/Users/alphamale/Downloads/OpenVSP-3.51.2-win64-Python3.13/G1_5_trial/Tyche_R2T1_G1_5_ANALYSIS.vspgeom
+6
+
+# part#,geom#,surf#,gname,gid,thick,plate,copy#,geomcopy#
+1,2,0,Fuselage_S,EBQROGAIPJ,1,0,1,3
+2,1,0,MainWing_C,FRBVILRBAL,0,3,1,2
+3,1,1,MainWing_C,FRBVILRBAL,0,3,2,2
+4,0,0,WingRootFairing_S,OQALSYYBSL,1,0,1,1
+5,3,0,HTail_C,BFIENNDFSR,0,3,1,4
+6,3,1,HTail_C,BFIENNDFSR,0,3,2,4
+
+6
+
+# tag#,part#,ssname1,ssname2,...,ssid1,ssid2,...
+1,1
+2,2
+3,3
+4,4
+5,5
+6,6

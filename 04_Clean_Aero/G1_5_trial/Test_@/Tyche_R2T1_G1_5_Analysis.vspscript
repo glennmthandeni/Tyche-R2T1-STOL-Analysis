@@ -1,0 +1,1616 @@
+//==============================================================================
+// TYCHE R2-T1  /  G1.5 ANALYSIS-READY  - NO WINDOW GEOMETRY
+// OpenVSP 3.51.x AngelScript build file
+//
+// Design source : Tyche R2-T1 Final Design Report
+//                 Table 3.5 (principal geometry), Table 4.1, Chapters 6 and 7
+//
+// Run           : OpenVSP GUI -> File -> Run Script...
+// Output        : Tyche_R2T1_G1_5_ANALYSIS.vsp3
+//
+// RELEASE G1.5 = G1.4 + correction AC-03 (horizontal-tail-root topology).
+// AC-02 and AC-03 are PURELY ADDITIVE.  Sets 3, 4, 5 and 6 (G0/G1/G2/G3) contain exactly
+// the same Geoms as in G1.3, so every completed CompGeom, Parasite Drag Tool
+// and VSPAERO result against those sets remains valid without re-running.
+//
+// BASELINE RULE : the attached nacelle-optimized geometry is authoritative.
+//                 Its seven fuselage stations, forward-body loft, nacelle OML,
+//                 propeller station and all other dimensions are preserved.
+//                 No windshield, cockpit-window, cabin-window, glazing helper,
+//                 VISUAL_ONLY set, or glazing-induced nose station is created.
+//
+// CUMULATIVE ANALYSIS SETS
+//   Set 3  G0_BARE_AIRFRAME       fuselage + wing + horizontal/vertical tails
+//   Set 4  G1_NACELLE_AIRFRAME   G0 + left/right nacelles
+//   Set 5  G2_COMPLETE_AIRFRAME  G1 + lift struts + fixed gear/wheels
+//   Set 6  G3_POWERED_AIRCRAFT   G2 + independent left/right propellers
+//
+// G2 is the normal unpowered analysis configuration.  G3 is reserved for
+// powered and future one-engine-inoperative cases.  Propeller CT/CP/RPM and the
+// final CG/inertias are not guessed by this geometry/set build.
+//
+//------------------------------------------------------------------------------
+// WHAT CHANGED FROM G1.1, AND WHY
+//------------------------------------------------------------------------------
+// 1. FUSELAGE LENGTH.  Table 3.5 states 9.70 m overall length AND a 5.90 m tail
+//    arm with xLE = 3.05 m.  These are mutually exclusive.  The wing MAC c/4 sits
+//    at FS 3.520 m, so a 5.90 m arm puts the tail aerodynamic centre at FS 9.420
+//    m and the 1.718 m horizontal-tail root trailing edge at FS 10.709 m --
+//    1.01 m behind the stated 9.70 m nose-to-tail dimension.  In G1.1 this is
+//    exactly why the empennage floats in space behind a needle-pointed tail cone.
+//    This build preserves the 5.90 m arm (Vh = 0.889, Vv = 0.048, the CG/neutral-
+//    point envelope, the forward-CG rotation closure and VMC all depend on it)
+//    and sets the fuselage to 10.75 m.  Table 3.5's overall length must be
+//    corrected to 10.75 m.  Set PRESERVE_TAIL_ARM = false to do the opposite:
+//    hold 9.70 m and let the arm collapse to 4.89 m (Vh falls to 0.737, which
+//    invalidates Chapter 7).
+//
+// 2. FUSELAGE SECTIONS.  G1.1 used ellipses and a 0.42 x 0.58 station at 88%
+//    length feeding a point at 100%, producing the spike tail cone.  This build
+//    uses seven rounded-rectangle stations with a controlled upsweep so the tail
+//    cone actually carries the fin and tailplane, and matches the flat-floor,
+//    flat-sided cabin of the cover-page configuration.
+//
+// 3. VERTICAL TAIL.  G1.1 planted the 2.53 m fin at z = +0.30 m on a body whose
+//    crown is at z = +0.85 m, so the fin root was buried and the fin appeared
+//    detached and oversized.  Here the fin root sits on the tail-cone crown at
+//    z = +0.80 m and the height is set by the controlled 4.95 m overall height:
+//    2.75 m span, 4.00 m^2, AR 1.89, taper 0.50, 15 deg quarter-chord sweep.
+//
+// 4. STRUTS.  G1.1 used a fineness-32 POD with two compound rotations, which
+//    produced free-floating spikes.  Here each strut is a WING Geom with a
+//    symmetric section, running from the lower fuselage longeron to the wing
+//    lower surface at y = 4.00 m at exactly the 23.0 deg included angle used for
+//    the 107.9 kN tension / 42.6 kN compression case in Table 6.5.
+//
+// 5. LANDING GEAR.  Vertical datum is now closed rather than guessed.  With the
+//    aft CG at FS 3.90 m, the main gear at FS 4.29 m and zCG = 1.45 m, the
+//    reported 15.1 deg tip-back angle is reproduced only if the ground plane
+//    lies at z = -1.40 m and the CG at z = +0.05 m.  Everything vertical --
+//    propeller clearance, gear length, fin tip, tail-strike angle -- now hangs
+//    off that datum.  Computed tail-strike angle is 16.11 deg, controlled by
+//    the lower surface of the FS 9.138 m tail-boom station.
+//
+// 5A. NOSE-GEAR DISPLAY FIX.  The earlier G1.2 build made the nose leg a WING
+//    section with -90 deg section dihedral.  At exactly 90 deg, OpenVSP's wing
+//    planform projection becomes singular and can draw an effectively infinite
+//    vertical line.  The leg is now built like the vertical tail: rotate the
+//    complete WING Geom -90 deg about X, retain zero section dihedral, and set
+//    its 0.510 m span directly from the fuselage attachment to the wheel axle.
+//
+// 5B. EMPENNAGE-TO-FUSELAGE CLOSURE.  The tailplane chord line and fin root are
+//    at z = +0.800 m, but the earlier final fuselage point was at z = +0.600 m.
+//    That forced the loft to fall away under the tailplane and left a visible
+//    wedge-shaped gap.  The tail-boom crown and final point now both terminate
+//    exactly on z_tailplane, without moving either tail or changing tail arm.
+//
+// 6. WING RIGGING.  G1.1 applied +2 deg with Y_Rel_Rotation and -2 deg with tip
+//    twist, which double-counts if the rotation sign convention is misread.
+//    Here rigging is pure section twist: +2.000 deg at the root, 0.000 deg at
+//    the tip, linear -- i.e. +2 deg incidence with 2 deg washout, no Geom
+//    rotation at all.
+//
+// 7. WING BREAKS.  Four spanwise sections placed on the Table 4.1 device
+//    stations (flap 0.85-5.85 m, aileron 5.95-8.00 m) so control sub-surfaces
+//    and VSPAERO panelling land on real hinge lines.
+//
+// 8. NACELLE ENVELOPE.  The previous 3.55 m x 0.80 m circular POD was a visual
+//    assumption with no equipment-packaging closure.  G1.3 sizes the outer
+//    mold line from the installed propulsion package:
+//      Rotax 916 installation envelope   0.657 L x 0.578 W x 0.673 H m
+//      E-811 motor envelope               0.091 axial x 0.268 diameter m
+//      clutch/combiner allowance          0.250 m
+//      cooling/controller/service zone    0.400 m
+//      forward transition + aft fairing   0.750 m
+//    The resulting 2.148 m package is rounded up to a 2.20 m nacelle.  Lateral
+//    and vertical installation clearances give a 0.68 m x 0.74 m maximum oval
+//    section.  A multi-station FUSELAGE Geom replaces the axisymmetric POD so
+//    the exhaust/cooling height does not force unnecessary plan-view width.
+//    These are preliminary outer-mold-line values; supplier CAD, radiator area,
+//    exhaust routing and the detailed combiner layout remain freeze gates.
+//
+//------------------------------------------------------------------------------
+// 9. WING-ROOT INTERSECTION TOPOLOGY  (correction AC-02, new in G1.4)
+//------------------------------------------------------------------------------
+// SYMPTOM.  Every attempt at a thick-fuselage VSPAERO representation (hybrid
+// thin/thick and all-thick panel) produced a non-converged surface solution
+// with either a 20-31 mm clipped root sliver carrying sectional c_l of -8 to
+// -19, or a 5.33 m oversized root load polygon.  Six controlled repairs -
+// MainWing Num_W 73/49/33, fuselage SectTess_U 6/9, LE clustering 0.25/0.50
+// and TE clustering 0.25/0.50 - all failed.
+//
+// ROOT CAUSE.  It is not a discretization problem.  The wing chord plane sits
+// at z = 0.880 m; the cabin crown sits at z = fuse_h/2 = 0.850 m.  The wing
+// root therefore sits 0.030 m ABOVE the body it is supposed to intersect.  The
+// only contact comes from the LS(1)-0417 lower-surface camber, which gives:
+//
+//     root leading edge          0.030 m PROUD of the crown
+//     root trailing edge, lower  0.0115 m PROUD of the crown
+//     maximum penetration        0.124 m, and only near mid-chord
+//
+// So the wing/body intersection is not a closed loop wrapping the root.  It is
+// an open, grazing, sliver-shaped contact patch that exists over roughly
+// x/c = 0.004 to 0.815 only, with both ends of the root chord hanging in free
+// air above the fuselage.  Refining the mesh cannot repair a degenerate
+// intersection; it only changes which pathology the trimmer produces.  This is
+// exactly the observed behaviour: fine meshes gave the thin sliver, coarse
+// meshes gave the oversized merged polygon.
+//
+// CORRECTION.  A wing carry-through fairing is added on the cabin crown, which
+// is also the physically correct missing component for a high-wing aircraft of
+// this class (C208, DHC-6 and Y-12 all carry a raised spar-box fairing above
+// the cabin roof).  It raises the local crown to z = 1.020 m so that:
+//
+//     root leading edge          0.140 m BURIED
+//     root trailing edge, lower  0.1585 m BURIED
+//     upper surface emerges      0.108 m above the crown
+//     forward emergence          x/c 0.0586, surface angle 21.0 deg
+//     aft emergence              x/c 0.7742, surface angle 13.6 deg
+//
+// Both crossings are transversal.  There is no tangency anywhere on the root.
+// FAIRING_MODE = 2 raises the crown until the root is FULLY enclosed and the
+// wing exits only through the fairing side walls - maximum numerical
+// robustness, at the cost of a larger dorsal hump.
+//
+// ISOLATION.  WingRootFairing is EXCLUDED from sets 3-6.  It is carried in
+// three new sets (7, 8, 9) so the hybrid/panel study can be re-run without
+// disturbing any frozen result.  Set BUILD_ROOT_FAIRING = false to reproduce
+// G1.3 exactly.
+//
+//------------------------------------------------------------------------------
+// 10. HORIZONTAL-TAIL ROOT TOPOLOGY  (correction AC-03, new in G1.5)
+//------------------------------------------------------------------------------
+// SYMPTOM.  The first H2 hybrid run retained the healthy AC-02 MainWing root,
+// but the HTail produced a 0.103 m clipped root chord followed immediately by
+// a normal 1.679 m chord (a 16.3:1 jump).  The clipped record carried c_l of
+// 144-150, c_di of about -14,000 and c_m of about -67,000.  The VTail loads
+// remained ordinary, localizing the new failure to HTail / tail-cone trimming.
+//
+// ROOT CAUSE.  Note 5B deliberately placed the tail-boom crown and the final
+// fuselage point exactly on z_tailplane = 0.800 m.  This closes the rendering
+// gap but leaves the thin HTail chord plane coincident with the thick-body skin.
+// As at the original MainWing root, the trimmer is being asked to resolve a
+// grazing contact rather than a decisive through-body intersection.
+//
+// CORRECTION.  TailRootFairing is an additive, symmetric carry-through body
+// around the unchanged NACA 0012 HTail root.  In the default mode 2 it encloses
+// the complete +/-6% root thickness plus 40 mm clearance, so the thin HTail
+// exits through the fairing side walls rather than grazing the tail-cone crown.
+// Its full section brackets the HTail root chord by 80 mm fore and aft.  The
+// forward cap is buried in the tail cone; the aft cap is an analysis fairing
+// extension because the controlled HTail trailing edge lies only 41 mm ahead
+// of the original fuselage point.  This avoids re-shaping the frozen fuselage.
+//
+// ISOLATION.  TailRootFairing is excluded from sets 3-6.  Dedicated, disjoint
+// THIN and THICK set pairs are created for H1, the HTail-only smoke test, H2 and
+// H3.  Never place one Geom in both sides of a VSPAERO hybrid case.
+//
+//------------------------------------------------------------------------------
+// PROPELLER-CLEARANCE STATUS
+//------------------------------------------------------------------------------
+// PROPELLER-TO-FUSELAGE CLEARANCE.  y = +/-1.60 m with a 2.00 m propeller puts
+// the inboard blade tip at y = 0.60 m.  The cabin half-width is 0.775 m.  The
+// only way the report values coexist is to put the disc plane well forward of
+// the full-width cabin, which is what this build does (disc at FS 1.60 m, where
+// the forward body has narrowed).  The nominal three-dimensional model gap is
+// 0.035 m.  This is 0.010 m above the 0.025 m geometric minimum in
+// CS 23.925(d)(1), but compliance remains OPEN pending blade/mount deflection,
+// vibration, manufacturing tolerance and the most-adverse operating condition.
+// The script prints the nominal clearance and this qualification explicitly.
+//==============================================================================
+
+
+//------------------------------------------------------------------------------
+// Helper: apply one wing section using the span / root-chord / tip-chord driver.
+//------------------------------------------------------------------------------
+void SetWingSection( const string &in wid, int isect,
+                     double span, double croot, double ctip,
+                     double sweep, double sweeploc,
+                     double dihedral, double twist, double tessu )
+{
+    string grp = "XSec_" + formatInt( isect );
+
+    SetDriverGroup( wid, isect, SPAN_WSECT_DRIVER, ROOTC_WSECT_DRIVER, TIPC_WSECT_DRIVER );
+    Update();
+
+    SetParmVal( wid, "Span",           grp, span );
+    SetParmVal( wid, "Root_Chord",     grp, croot );
+    SetParmVal( wid, "Tip_Chord",      grp, ctip );
+    SetParmVal( wid, "Sweep",          grp, sweep );
+    SetParmVal( wid, "Sweep_Location", grp, sweeploc );
+    SetParmVal( wid, "Dihedral",       grp, dihedral );
+    SetParmVal( wid, "Twist",          grp, twist );
+    SetParmVal( wid, "Twist_Location", grp, 0.25 );
+    SetParmVal( wid, "SectTess_U",     grp, tessu );
+    Update();
+}
+
+
+//------------------------------------------------------------------------------
+// Helper: force a Geom's XSecSurf to hold exactly nWant cross-sections.
+//------------------------------------------------------------------------------
+void SetXSecCount( const string &in gid, int nWant )
+{
+    string surf = GetXSecSurf( gid, 0 );
+
+    while ( GetNumXSec( surf ) > nWant )
+    {
+        CutXSec( gid, 1 );
+        Update();
+        surf = GetXSecSurf( gid, 0 );
+    }
+    while ( GetNumXSec( surf ) < nWant )
+    {
+        InsertXSec( gid, 1, XS_ELLIPSE );
+        Update();
+        surf = GetXSecSurf( gid, 0 );
+    }
+}
+
+
+//------------------------------------------------------------------------------
+// Helper: set a NACA 4-series section on both ends of a WING Geom.
+//------------------------------------------------------------------------------
+void SetFourSeries( const string &in gid, int nxsec,
+                    double camber, double camberloc, double thick )
+{
+    string surf = GetXSecSurf( gid, 0 );
+    for ( int i = 0; i < nxsec; i++ )
+    {
+        ChangeXSecShape( surf, i, XS_FOUR_SERIES );
+    }
+    Update();
+
+    surf = GetXSecSurf( gid, 0 );
+    for ( int i = 0; i < nxsec; i++ )
+    {
+        string xs = GetXSec( surf, i );
+        SetParmVal( GetXSecParm( xs, "Camber" ),     camber );
+        SetParmVal( GetXSecParm( xs, "CamberLoc" ),  camberloc );
+        SetParmVal( GetXSecParm( xs, "ThickChord" ), thick );
+    }
+    Update();
+}
+
+//------------------------------------------------------------------------------
+// Helper: install the actual NASA/Langley LS(1)-0417 (GA(W)-1) coordinates.
+// Embedded coordinates remove external-file dependencies so the script remains
+// portable.  Source: UIUC Airfoil Coordinates Database, ls417.dat (38+38).
+//------------------------------------------------------------------------------
+// AC-02: the coordinates are now held in three shared tables so that the
+// geometry builder and the intersection audit cannot drift apart.  The upper
+// and lower surfaces share the same 38 chordwise stations.
+array< double > LS0417_XC()
+{
+    array< double > x( 38 );
+    x[0]=0.00000; x[1]=0.00200; x[2]=0.00500; x[3]=0.01250; x[4]=0.02500;
+    x[5]=0.03750; x[6]=0.05000; x[7]=0.07500; x[8]=0.10000; x[9]=0.12500;
+    x[10]=0.15000; x[11]=0.17500; x[12]=0.20000; x[13]=0.25000; x[14]=0.30000;
+    x[15]=0.35000; x[16]=0.40000; x[17]=0.45000; x[18]=0.50000; x[19]=0.55000;
+    x[20]=0.57500; x[21]=0.60000; x[22]=0.62500; x[23]=0.65000; x[24]=0.67500;
+    x[25]=0.70000; x[26]=0.72500; x[27]=0.75000; x[28]=0.77500; x[29]=0.80000;
+    x[30]=0.82500; x[31]=0.85000; x[32]=0.87500; x[33]=0.90000; x[34]=0.92500;
+    x[35]=0.95000; x[36]=0.97500; x[37]=1.00000;
+    return x;
+}
+
+array< double > LS0417_YU()
+{
+    array< double > y( 38 );
+    y[0]=0.00000; y[1]=0.01300; y[2]=0.02035; y[3]=0.03069; y[4]=0.04165;
+    y[5]=0.04974; y[6]=0.05600; y[7]=0.06561; y[8]=0.07309; y[9]=0.07909;
+    y[10]=0.08413; y[11]=0.08848; y[12]=0.09209; y[13]=0.09778; y[14]=0.10169;
+    y[15]=0.10409; y[16]=0.10500; y[17]=0.10456; y[18]=0.10269; y[19]=0.09917;
+    y[20]=0.09674; y[21]=0.09374; y[22]=0.09013; y[23]=0.08604; y[24]=0.08144;
+    y[25]=0.07639; y[26]=0.07096; y[27]=0.06517; y[28]=0.05913; y[29]=0.05291;
+    y[30]=0.04644; y[31]=0.03983; y[32]=0.03313; y[33]=0.02639; y[34]=0.01965;
+    y[35]=0.01287; y[36]=0.00604; y[37]=-0.00074;
+    return y;
+}
+
+array< double > LS0417_YL()
+{
+    array< double > y( 38 );
+    y[0]=0.00000; y[1]=-0.00974; y[2]=-0.01444; y[3]=-0.02052; y[4]=-0.02691;
+    y[5]=-0.03191; y[6]=-0.03569; y[7]=-0.04209; y[8]=-0.04700; y[9]=-0.05087;
+    y[10]=-0.05426; y[11]=-0.05700; y[12]=-0.05926; y[13]=-0.06265; y[14]=-0.06448;
+    y[15]=-0.06517; y[16]=-0.06483; y[17]=-0.06344; y[18]=-0.06091; y[19]=-0.05683;
+    y[20]=-0.05396; y[21]=-0.05061; y[22]=-0.04678; y[23]=-0.04265; y[24]=-0.03830;
+    y[25]=-0.03383; y[26]=-0.02930; y[27]=-0.02461; y[28]=-0.02030; y[29]=-0.01587;
+    y[30]=-0.01191; y[31]=-0.00852; y[32]=-0.00565; y[33]=-0.00352; y[34]=-0.00248;
+    y[35]=-0.00257; y[36]=-0.00396; y[37]=-0.00783;
+    return y;
+}
+
+void SetLS10417( const string &in gid, int nxsec )
+{
+    array< double > xc = LS0417_XC();
+    array< double > yu = LS0417_YU();
+    array< double > yl = LS0417_YL();
+
+    array< vec3d > upper( 38 );
+    array< vec3d > lower( 38 );
+    for ( int k = 0; k < 38; k++ )
+    {
+        upper[k] = vec3d( xc[k], yu[k], 0.0 );
+        lower[k] = vec3d( xc[k], yl[k], 0.0 );
+    }
+
+    string surf = GetXSecSurf( gid, 0 );
+    for ( int i = 0; i < nxsec; i++ )
+    {
+        ChangeXSecShape( surf, i, XS_FILE_AIRFOIL );
+    }
+    Update();
+
+    surf = GetXSecSurf( gid, 0 );
+    for ( int i = 0; i < nxsec; i++ )
+    {
+        string xs = GetXSec( surf, i );
+        SetAirfoilPnts( xs, upper, lower );
+    }
+    Update();
+}
+
+
+
+//------------------------------------------------------------------------------
+// Helper: reproduce one side of the proven nacelle-optimized OML exactly.
+// Splitting the former mirrored pair changes only Geom ownership, not shape.
+//------------------------------------------------------------------------------
+string AddPackagedNacelle( const string &in name,
+                           double xloc, double yloc, double zloc,
+                           double length, double width, double height )
+{
+    string gid = AddGeom( "FUSELAGE", "" );
+    SetGeomName( gid, name );
+    SetParmVal( gid, "Sym_Planar_Flag", "Sym", 0.0 );
+    SetParmVal( gid, "X_Rel_Location", "XForm", xloc );
+    SetParmVal( gid, "Y_Rel_Location", "XForm", yloc );
+    SetParmVal( gid, "Z_Rel_Location", "XForm", zloc );
+    SetParmVal( gid, "Length", "Design", length );
+    Update();
+
+    SetXSecCount( gid, 6 );
+    string surf = GetXSecSurf( gid, 0 );
+    ChangeXSecShape( surf, 0, XS_POINT );
+    ChangeXSecShape( surf, 1, XS_ELLIPSE );
+    ChangeXSecShape( surf, 2, XS_ELLIPSE );
+    ChangeXSecShape( surf, 3, XS_ELLIPSE );
+    ChangeXSecShape( surf, 4, XS_ELLIPSE );
+    ChangeXSecShape( surf, 5, XS_POINT );
+    Update();
+
+    surf = GetXSecSurf( gid, 0 );
+    string nx0 = GetXSec( surf, 0 );
+    string nx1 = GetXSec( surf, 1 );
+    string nx2 = GetXSec( surf, 2 );
+    string nx3 = GetXSec( surf, 3 );
+    string nx4 = GetXSec( surf, 4 );
+    string nx5 = GetXSec( surf, 5 );
+
+    SetParmVal( GetXSecParm( nx0, "XLocPercent" ), 0.000 );
+    SetParmVal( GetXSecParm( nx1, "XLocPercent" ), 0.080 );
+    SetParmVal( GetXSecParm( nx2, "XLocPercent" ), 0.220 );
+    SetParmVal( GetXSecParm( nx3, "XLocPercent" ), 0.650 );
+    SetParmVal( GetXSecParm( nx4, "XLocPercent" ), 0.860 );
+    SetParmVal( GetXSecParm( nx5, "XLocPercent" ), 1.000 );
+
+    SetXSecWidthHeight( nx1, 0.500, 0.540 );
+    SetXSecWidthHeight( nx2, width, height );
+    SetXSecWidthHeight( nx3, width, height );
+    SetXSecWidthHeight( nx4, 0.480, 0.520 );
+    Update();
+    return gid;
+}
+
+
+//------------------------------------------------------------------------------
+// Helper: add one independent four-bladed propeller at the baseline station.
+// PROP_BOTH preserves the visible four-blade geometry and the actuator disk.
+//------------------------------------------------------------------------------
+string AddAnalysisPropeller( const string &in name,
+                             double xloc, double yloc, double zloc,
+                             double diameter )
+{
+    string gid = AddGeom( "PROP", "" );
+    SetGeomName( gid, name );
+    SetParmVal( gid, "Sym_Planar_Flag", "Sym", 0.0 );
+    SetParmVal( gid, "X_Rel_Location", "XForm", xloc );
+    SetParmVal( gid, "Y_Rel_Location", "XForm", yloc );
+    SetParmVal( gid, "Z_Rel_Location", "XForm", zloc );
+    SetParmVal( gid, "PropMode", "Design", PROP_BOTH );
+    SetParmVal( gid, "Diameter", "Design", diameter );
+    SetParmVal( gid, "NumBlade", "Design", 4 );
+    Update();
+    return gid;
+}
+
+
+//------------------------------------------------------------------------------
+// AC-02/AC-03 helper: build a dorsal carry-through fairing.
+//
+// Topology rationale.  Independent point heights allow each cap to be buried
+// decisively where the parent fuselage exists, or closed externally where the
+// parent body has already ended.  The taper from a buried point to the full-size
+// section is deliberately short.  The fairing therefore emerges across a
+// steeply inclined cap rather than along a shallow tangent ramp.
+//------------------------------------------------------------------------------
+string AddDorsalFairing( const string &in name,
+                         double x_nose, double x_full_fwd,
+                         double x_full_aft, double x_tail,
+                         double width, double crown, double keel,
+                         double nose_point_z, double tail_point_z )
+{
+    double flen   = x_tail - x_nose;
+    double fcz    = 0.5 * ( crown + keel );
+    double fheight = crown - keel;
+
+    string gid = AddGeom( "FUSELAGE", "" );
+    SetGeomName( gid, name );
+    SetParmVal( gid, "Sym_Planar_Flag", "Sym", 0.0 );
+    SetParmVal( gid, "X_Rel_Location", "XForm", x_nose );
+    SetParmVal( gid, "Y_Rel_Location", "XForm", 0.0 );
+    SetParmVal( gid, "Z_Rel_Location", "XForm", 0.0 );
+    SetParmVal( gid, "Length", "Design", flen );
+    Update();
+
+    SetXSecCount( gid, 4 );
+    string surf = GetXSecSurf( gid, 0 );
+    ChangeXSecShape( surf, 0, XS_POINT );
+    ChangeXSecShape( surf, 1, XS_ROUNDED_RECTANGLE );
+    ChangeXSecShape( surf, 2, XS_ROUNDED_RECTANGLE );
+    ChangeXSecShape( surf, 3, XS_POINT );
+    Update();
+
+    surf = GetXSecSurf( gid, 0 );
+    string rx0 = GetXSec( surf, 0 );
+    string rx1 = GetXSec( surf, 1 );
+    string rx2 = GetXSec( surf, 2 );
+    string rx3 = GetXSec( surf, 3 );
+
+    SetParmVal( GetXSecParm( rx0, "XLocPercent" ), 0.0 );
+    SetParmVal( GetXSecParm( rx1, "XLocPercent" ), ( x_full_fwd - x_nose ) / flen );
+    SetParmVal( GetXSecParm( rx2, "XLocPercent" ), ( x_full_aft - x_nose ) / flen );
+    SetParmVal( GetXSecParm( rx3, "XLocPercent" ), 1.0 );
+
+    SetParmVal( GetXSecParm( rx0, "ZLocPercent" ), nose_point_z / flen );
+    SetParmVal( GetXSecParm( rx1, "ZLocPercent" ), fcz / flen );
+    SetParmVal( GetXSecParm( rx2, "ZLocPercent" ), fcz / flen );
+    SetParmVal( GetXSecParm( rx3, "ZLocPercent" ), tail_point_z / flen );
+
+    SetXSecWidthHeight( rx1, width, fheight );
+    SetXSecWidthHeight( rx2, width, fheight );
+    Update();
+
+    return gid;
+}
+
+
+//------------------------------------------------------------------------------
+// AC-02 helper: audit the wing-root / body intersection topology.
+//
+// Walks the embedded LS(1)-0417 surface against a given crown height and
+// reports burial depths, the emergence stations, and the surface angle at
+// which the wing crosses the body.  A crossing angle near zero is a tangency,
+// which is what produces clipped slivers and oversized merged load polygons.
+//------------------------------------------------------------------------------
+void PrintIntersectionAudit( const string &in label,
+                             double z_chord, double chord, double z_crown )
+{
+    array< double > xc = LS0417_XC();
+    array< double > yu = LS0417_YU();
+    array< double > yl = LS0417_YL();
+    int n = 38;
+
+    double burial_le = z_crown - z_chord;
+    double burial_te = z_crown - ( z_chord + chord * yl[n-1] );
+
+    double z_up_max = z_chord + chord * yu[0];
+    for ( int i = 1; i < n; i++ )
+    {
+        double zv = z_chord + chord * yu[i];
+        if ( zv > z_up_max ) { z_up_max = zv; }
+    }
+    double emergence = z_up_max - z_crown;
+
+    int i_fwd = -1;
+    for ( int i = 0; i < n; i++ )
+    {
+        if ( z_chord + chord * yu[i] > z_crown ) { i_fwd = i; break; }
+    }
+    int i_aft = -1;
+    for ( int i = n - 1; i >= 0; i-- )
+    {
+        if ( z_chord + chord * yu[i] > z_crown ) { i_aft = i; break; }
+    }
+
+    Print( "   " + label );
+    Print( "     crown z                 : " + formatFloat( z_crown, "", 0, 4 ) + " m" );
+    Print( "     root LE burial          : " + formatFloat( burial_le, "", 0, 4 ) + " m" );
+    Print( "     root TE lower burial    : " + formatFloat( burial_te, "", 0, 4 ) + " m" );
+    Print( "     upper-surface emergence : " + formatFloat( emergence, "", 0, 4 ) + " m" );
+
+    string verdict = "[PASS]";
+
+    if ( i_fwd < 0 )
+    {
+        Print( "     topology                : root FULLY ENCLOSED, exits side walls only" );
+    }
+    else if ( i_fwd == 0 )
+    {
+        Print( "     topology                : ROOT LEADING EDGE STANDS PROUD OF THE CROWN" );
+        Print( "     -> grazing contact patch, no closed root intersection loop" );
+        verdict = "[FAIL] DEGENERATE";
+    }
+    else
+    {
+        double t1 = ( z_crown - ( z_chord + chord * yu[i_fwd-1] ) ) /
+                    ( chord * ( yu[i_fwd] - yu[i_fwd-1] ) );
+        double xf = xc[i_fwd-1] + t1 * ( xc[i_fwd] - xc[i_fwd-1] );
+        double af = atan2( yu[i_fwd] - yu[i_fwd-1],
+                           xc[i_fwd] - xc[i_fwd-1] ) * 180.0 / 3.14159265358979;
+
+        double xa = 1.0;
+        double aa = 90.0;
+        if ( i_aft < n - 1 )
+        {
+            double t2 = ( ( z_chord + chord * yu[i_aft] ) - z_crown ) /
+                        ( chord * ( yu[i_aft] - yu[i_aft+1] ) );
+            xa = xc[i_aft] + t2 * ( xc[i_aft+1] - xc[i_aft] );
+            aa = atan2( yu[i_aft] - yu[i_aft+1],
+                        xc[i_aft+1] - xc[i_aft] ) * 180.0 / 3.14159265358979;
+        }
+
+        Print( "     forward emergence       : x/c " + formatFloat( xf, "", 0, 4 ) +
+               "   surface angle " + formatFloat( af, "", 0, 2 ) + " deg" );
+        Print( "     aft emergence           : x/c " + formatFloat( xa, "", 0, 4 ) +
+               "   surface angle " + formatFloat( aa, "", 0, 2 ) + " deg" );
+        Print( "     emerged chord fraction  : " +
+               formatFloat( 100.0 * ( xa - xf ), "", 0, 1 ) + " %" );
+
+        if ( af < 8.0 ) { verdict = "[CHECK] shallow forward crossing"; }
+        if ( aa < 8.0 ) { verdict = "[CHECK] shallow aft crossing"; }
+    }
+
+    if ( burial_le < 0.0 || burial_te < 0.0 )
+    {
+        verdict = "[FAIL] DEGENERATE";
+    }
+    else if ( burial_le < 0.050 || burial_te < 0.050 )
+    {
+        verdict = "[CHECK] burial below 50 mm";
+    }
+
+    Print( "     verdict                 : " + verdict );
+    Print( "" );
+}
+
+
+//------------------------------------------------------------------------------
+// Helper: print a compact membership audit for a user set.
+//------------------------------------------------------------------------------
+void PrintSetAudit( int set_index, int expected_count )
+{
+    array< string > @members = GetGeomSetAtIndex( set_index );
+    int actual_count = int( members.size() );
+    string audit_status = "[PASS]";
+    if ( actual_count != expected_count )
+    {
+        audit_status = "[CHECK]";
+    }
+    Print( " " + audit_status + " Set " + formatInt( set_index ) + "  " +
+           GetSetName( set_index ) + "  |  Geoms = " +
+           formatInt( actual_count ) + "  expected " +
+           formatInt( expected_count ) );
+    for ( uint i = 0; i < members.size(); i++ )
+    {
+        Print( "    - " + GetGeomName( members[i] ) );
+    }
+}
+
+
+//==============================================================================
+void main()
+{
+    VSPCheckSetup();
+    ClearVSPModel();
+
+    Print( "================================================================" );
+    Print( " TYCHE R2-T1  |  G1.5 ANALYSIS-READY  |  NO WINDOWS" );
+    Print( "================================================================" );
+
+
+    //==========================================================================
+    // 0.  BUILD SWITCHES
+    //==========================================================================
+
+    // true  : hold the 5.90 m tail arm, fuselage grows to 10.75 m  (recommended)
+    // false : hold the 9.70 m overall length, tail arm collapses to 4.89 m
+    bool   PRESERVE_TAIL_ARM   = true;
+
+    // Add aileron / flap / elevator / rudder control sub-surfaces for
+    // VSPAERO and AVL control derivatives.
+    bool   ADD_CONTROL_SURFACES = true;
+
+    // AC-02.  Build the wing carry-through fairing that gives the wing root a
+    // non-degenerate intersection with the fuselage.  Additive only: sets 3-6
+    // are untouched, so every frozen G1.3 result stays valid.
+    // false reproduces G1.3 exactly.
+    bool   BUILD_ROOT_FAIRING  = true;
+
+    // 1 = blended.  Crown at fair_crown; the wing upper surface emerges through
+    //     the fairing over roughly 70% of the root chord.  Physically
+    //     representative and the recommended starting point.
+    // 2 = enclosed. Crown raised until the whole root section is inside the
+    //     fairing and the wing exits only through the vertical side walls.
+    //     Topologically bulletproof; larger dorsal hump.  Use this if mode 1
+    //     still shows root artifacts in the CompGeom intersection curves.
+    int    FAIRING_MODE        = 2;
+
+    // AC-03.  Build a local tail carry-through fairing around the unchanged
+    // HTail root.  It is excluded from frozen sets 3-6 and included only in the
+    // new hybrid diagnostics.  false reproduces the G1.4 tail topology.
+    bool   BUILD_TAIL_ROOT_FAIRING = false;
+
+    // 1 = chord-plane enclosure for a thin HTail diagnostic.
+    // 2 = full NACA 0012 root enclosure plus clearance (recommended/default).
+    int    TAIL_FAIRING_MODE       = 2;
+
+    // Legacy diagnostic switch retained for controlled comparisons.  Keep at
+    // zero when using AC-03: raising both the fx5 section and final point moves
+    // the entire shrinking tail cone upward and does not robustly enclose the
+    // HTail near its trailing edge.  A non-zero value also changes frozen OML.
+    double TAIL_CONE_RISE      = 0.060;
+
+
+    //==========================================================================
+    // 1.  CONTROLLED VALUES  (metres, degrees)
+    //==========================================================================
+
+    // ---- Wing, Table 3.5 and Table 4.1 -------------------------------------
+    double S_wing       = 30.00;      // m^2       CONTROLLED
+    double b_wing       = 16.40;      // m         CONTROLLED
+    double semi         =  8.20;      // m         derived
+    double taper        =  0.55;      // -         CONTROLLED
+    double c_root       =  2.360346;  // m         derived 2S/(b(1+lambda))
+    double c_tip        =  1.298190;  // m         derived
+    double MAC          =  1.880663;  // m         CONTROLLED (report 1.881)
+    double incidence    =  2.00;      // deg root  CONTROLLED
+    double washout      =  2.00;      // deg       CONTROLLED
+    double dihedral     =  2.00;      // deg       ASSUMED (report is silent)
+    double t_c_wing     =  0.17;      // -         CONTROLLED
+
+    double x_LE_MAC     =  3.050;     // m FS      CONTROLLED (Chapter 7.1)
+    double x_wing_root  =  2.930079;  // m FS      derived root-LE station
+    double x_wing_c4    =  3.520166;  // m FS      derived
+    double z_wing       =  0.880;     // m         high wing on the crown
+
+    // Device stations, Table 4.1
+    double y_flap_in    =  0.85;
+    double y_flap_out   =  5.85;
+    double y_ail_in     =  5.95;
+    double y_ail_out    =  8.00;
+
+    // Section chords and twists on the four section breaks
+    double c_0   = 2.360346;  double tw_0 = 2.000000;   // y = 0.00
+    double c_1   = 2.250245;  double tw_1 = 1.792683;   // y = 0.85
+    double c_2   = 1.602589;  double tw_2 = 0.573171;   // y = 5.85
+    double c_3   = 1.589636;  double tw_3 = 0.548780;   // y = 5.95
+    double c_4   = 1.298190;  double tw_4 = 0.000000;   // y = 8.20
+
+    // ---- Empennage ---------------------------------------------------------
+    double S_htail      =  8.50;      // m^2       CONTROLLED
+    double AR_htail     =  4.50;      // -         ASSUMED
+    double taper_htail  =  0.60;      // -         ASSUMED
+    double b_htail      =  6.184658;  // m         derived
+    double semi_htail   =  3.092329;  // m         derived
+    double cr_htail     =  1.717961;  // m         derived
+    double ct_htail     =  1.030776;  // m         derived
+
+    double S_vtail      =  4.00;      // m^2       CONTROLLED
+    double taper_vtail  =  0.50;      // -         ASSUMED
+    double sweep_vtail  = 15.00;      // deg c/4   ASSUMED
+    double h_vtail      =  2.750;     // m         derived from 4.95 m height
+    double cr_vtail     =  1.939394;  // m         derived
+    double ct_vtail     =  0.969697;  // m         derived
+
+    double tail_arm     =  5.90;      // m         CONTROLLED (c/4 to c/4)
+    double x_tail_AC    =  9.420166;  // m FS      derived
+    double x_htail_root =  8.990676;  // m FS      derived root-LE station
+    double x_vtail_root =  8.771571;  // m FS      derived root-LE station
+    double z_tailplane  =  0.800;     // m         tail-cone crown
+
+    // ---- Fuselage ----------------------------------------------------------
+    double fuse_len     = 10.750;     // m   see note 1; report states 9.70 m
+    double fuse_w       =  1.550;     // m         CONTROLLED
+    double fuse_h       =  1.700;     // m         CONTROLLED
+
+    // ---- Vertical datum, closed against the 15.1 deg tip-back --------------
+    double z_ground     = -1.400;     // m   ground plane, zCG = 1.45 m
+    double z_CG         =  0.050;     // m   CG above the fuselage reference axis
+    double height_total =  4.950;     // m         CONTROLLED
+    double z_fin_tip    =  3.550;     // m   = z_ground + 4.95
+
+    // ---- Propulsion --------------------------------------------------------
+    double prop_D       =  2.000;     // m         CONTROLLED
+    double prop_y       =  1.600;     // m         CONTROLLED (see clearance note)
+    double prop_x       =  1.600;     // m FS      ASSUMED, forward of the cabin
+    double z_thrust     =  0.750;     // m   = zCG + 0.70 m, Table 7.2 basis
+    // Preliminary installed outer mold line.  Width and height are separated
+    // because the Rotax exhaust-height case, not the engine width, controls the
+    // vertical envelope.  This avoids the excess width of a circular POD.
+    double nac_len      =  2.200;     // m  package closure: 2.148 m rounded up
+    double nac_w        =  0.680;     // m  0.578 m engine + installation margin
+    double nac_h        =  0.740;     // m  0.673 m exhaust height + clearance
+    double nac_x        =  1.660;     // m FS      spinner base
+
+    // ---- Landing gear ------------------------------------------------------
+    double x_mgear      =  4.290;     // m FS      CONTROLLED
+    double x_ngear      =  0.750;     // m FS      CONTROLLED
+    double track        =  3.900;     // m         CONTROLLED
+    double y_mgear      =  1.950;     // m         derived
+    double d_tyre_main  =  0.600;     // m         ASSUMED, high-flotation
+    double d_tyre_nose  =  0.500;     // m         ASSUMED
+
+    // ---- Lift strut, Table 6.5 --------------------------------------------
+    double y_strut      =  4.000;     // m         CONTROLLED
+    double strut_angle  = 23.000;     // deg       CONTROLLED
+    double strut_span   =  3.503512;  // m         derived
+    double y_strut_low  =  0.775;     // m         fuselage longeron
+    double z_strut_low  = -0.505837;  // m         derived
+    double x_strut      =  3.370;     // m FS      at the front-spar line
+    double strut_chord  =  0.300;     // m         ASSUMED
+
+    // G1.3 analysis-model correction AC-01.  These are buried centreline
+    // extensions only; the nominal exposed strut remains exactly as frozen.
+    double strut_pen_lower = 0.050;   // m along strut, into fuselage
+    double strut_pen_upper = 0.220;   // m along strut, closes gap + enters wing
+    double strut_angle_rad = strut_angle * 3.14159265358979 / 180.0;
+    double y_strut_model_root = y_strut_low -
+                                strut_pen_lower * cos( strut_angle_rad );
+    double z_strut_model_root = z_strut_low -
+                                strut_pen_lower * sin( strut_angle_rad );
+
+    // ---- AC-02 wing carry-through fairing ----------------------------------
+    // Longitudinal layout.  The full-size section brackets the root chord
+    // (FS 2.930 to FS 5.290) by 80 mm at each end, and both end POINTS are
+    // buried inside the fuselage so the fairing never grazes the crown.
+    double fair_x_nose     =  2.700;  // m FS  buried end point
+    double fair_x_full_fwd =  2.850;  // m FS  full section begins
+    double fair_x_full_aft =  5.370;  // m FS  full section ends
+    double fair_x_tail     =  5.520;  // m FS  buried end point
+    double fair_w          =  1.300;  // m     half-width 0.650 < 0.775 body
+    double fair_crown      =  1.020;  // m     mode 1 crown height
+    double fair_keel       = -0.250;  // m     buried well inside the body
+    double fair_encl_marg  =  0.060;  // m     mode 2 clearance over the root
+
+    // ---- Alternative closure ----------------------------------------------
+    if ( !PRESERVE_TAIL_ARM )
+    {
+        fuse_len     =  9.700;
+        x_htail_root =  9.700 - cr_htail;
+        x_vtail_root =  9.700 - cr_vtail;
+        x_tail_AC    =  x_htail_root + 0.25 * cr_htail + 0.25 * ( cr_htail - 1.403001 );
+        tail_arm     =  x_tail_AC - x_wing_c4;
+        Print( " [MODE] 9.70 m length held; tail arm collapses -- Chapter 7 invalid." );
+    }
+
+    // ---- AC-03 horizontal-tail carry-through fairing -----------------------
+    // The full section brackets the unchanged HTail root chord by 80 mm at
+    // each end, matching the successful AC-02 strategy.  A 0.150 m cap gives
+    // a decisive fairing/body crossing rather than a long tangent blend.
+    double tailfair_x_full_fwd = x_htail_root - 0.080;
+    double tailfair_x_nose     = tailfair_x_full_fwd - 0.150;
+    double tailfair_x_full_aft = x_htail_root + cr_htail + 0.080;
+    double tailfair_x_tail     = tailfair_x_full_aft + 0.150;
+    double tailfair_w          = 0.500;  // m; half-width 0.250 m
+    double tailfair_margin     = 0.040;  // m beyond the physical NACA 0012 root
+    double htail_half_thick    = 0.5 * 0.12 * cr_htail;
+    double tailfair_crown      = z_tailplane + 0.060; // mode 1
+    double tailfair_keel       = z_tailplane - 0.160; // mode 1
+    double tailfair_nose_z     = z_tailplane - 0.150; // buried in tail cone
+    double tailfair_tail_z     = z_tailplane;         // external aft cap
+
+    if ( TAIL_FAIRING_MODE == 2 )
+    {
+        tailfair_crown = z_tailplane + htail_half_thick + tailfair_margin;
+        tailfair_keel  = z_tailplane - htail_half_thick - tailfair_margin;
+    }
+
+
+    //==========================================================================
+    // 2.  FUSELAGE
+    //     Seven rounded-rectangle stations: flat floor, flat sides, controlled
+    //     upsweep giving a 16.11 deg tail-strike angle about the main wheel.
+    //==========================================================================
+    Print( " [1/8] Fuselage" );
+
+    string fid = AddGeom( "FUSELAGE", "" );
+    SetGeomName( fid, "Fuselage" );
+    SetParmVal( fid, "X_Rel_Location", "XForm", 0.0 );
+    SetParmVal( fid, "Y_Rel_Location", "XForm", 0.0 );
+    SetParmVal( fid, "Z_Rel_Location", "XForm", 0.0 );
+    SetParmVal( fid, "Length", "Design", fuse_len );
+    Update();
+
+    SetXSecCount( fid, 7 );
+
+    string fsurf = GetXSecSurf( fid, 0 );
+    ChangeXSecShape( fsurf, 0, XS_POINT );
+    ChangeXSecShape( fsurf, 1, XS_ROUNDED_RECTANGLE );
+    ChangeXSecShape( fsurf, 2, XS_ROUNDED_RECTANGLE );
+    ChangeXSecShape( fsurf, 3, XS_ROUNDED_RECTANGLE );
+    ChangeXSecShape( fsurf, 4, XS_ROUNDED_RECTANGLE );
+    ChangeXSecShape( fsurf, 5, XS_ROUNDED_RECTANGLE );
+    ChangeXSecShape( fsurf, 6, XS_POINT );
+    Update();
+
+    fsurf = GetXSecSurf( fid, 0 );
+    string fx0 = GetXSec( fsurf, 0 );
+    string fx1 = GetXSec( fsurf, 1 );
+    string fx2 = GetXSec( fsurf, 2 );
+    string fx3 = GetXSec( fsurf, 3 );
+    string fx4 = GetXSec( fsurf, 4 );
+    string fx5 = GetXSec( fsurf, 5 );
+    string fx6 = GetXSec( fsurf, 6 );
+
+    // Longitudinal stations as a fraction of overall length
+    SetParmVal( GetXSecParm( fx0, "XLocPercent" ), 0.000 );   // FS  0.000  nose point
+    SetParmVal( GetXSecParm( fx1, "XLocPercent" ), 0.050 );   // FS  0.538  nose
+    SetParmVal( GetXSecParm( fx2, "XLocPercent" ), 0.220 );   // FS  2.365  cabin front
+    SetParmVal( GetXSecParm( fx3, "XLocPercent" ), 0.500 );   // FS  5.375  cabin rear
+    SetParmVal( GetXSecParm( fx4, "XLocPercent" ), 0.660 );   // FS  7.095  upsweep
+    SetParmVal( GetXSecParm( fx5, "XLocPercent" ), 0.850 );   // FS  9.138  tail boom
+    SetParmVal( GetXSecParm( fx6, "XLocPercent" ), 1.000 );   // FS 10.750  tail point
+
+    // Vertical offsets: drooped nose, upswept tail cone.
+    // fx5 has height 0.80 m, so a centre at z = 0.40 m puts its crown exactly
+    // at z_tailplane = 0.80 m.  The final point also ends at z_tailplane.
+    SetParmVal( GetXSecParm( fx0, "ZLocPercent" ), -0.300 / fuse_len );
+    SetParmVal( GetXSecParm( fx1, "ZLocPercent" ), -0.200 / fuse_len );
+    SetParmVal( GetXSecParm( fx2, "ZLocPercent" ),  0.000 );
+    SetParmVal( GetXSecParm( fx3, "ZLocPercent" ),  0.000 );
+    SetParmVal( GetXSecParm( fx4, "ZLocPercent" ),  0.170 / fuse_len );
+    // AC-02 note 10.  TAIL_CONE_RISE lifts the tail-boom crown and the final
+    // point above z_tailplane so the HTail and VTail roots actually penetrate
+    // the cone.  At the default 0.000 the crown is coincident with the tail
+    // chord plane and any thick-body run including the tails WILL be
+    // degenerate.  The audit at the end of this script reports the value.
+    SetParmVal( GetXSecParm( fx5, "ZLocPercent" ),
+                ( z_tailplane + TAIL_CONE_RISE - 0.5 * 0.80 ) / fuse_len );
+    SetParmVal( GetXSecParm( fx6, "ZLocPercent" ),
+                ( z_tailplane + TAIL_CONE_RISE ) / fuse_len );
+
+    // Section width and height
+    SetXSecWidthHeight( fx1, 0.80,   0.90   );
+    SetXSecWidthHeight( fx2, fuse_w, fuse_h );
+    SetXSecWidthHeight( fx3, fuse_w, fuse_h );
+    SetXSecWidthHeight( fx4, 1.25,   1.34   );
+    SetXSecWidthHeight( fx5, 0.78,   0.80   );
+
+    Update();
+
+
+    //==========================================================================
+    // 3.  MAIN WING
+    //     Four sections on the Table 4.1 device breaks.  Quarter-chord unswept.
+    //     Rigging is pure twist: +2.000 deg root, 0.000 deg tip.
+    //==========================================================================
+    Print( " [2/8] Main wing" );
+
+    string wid = AddGeom( "WING", "" );
+    SetGeomName( wid, "MainWing" );
+    SetParmVal( wid, "Sym_Planar_Flag", "Sym", SYM_XZ );
+    SetParmVal( wid, "X_Rel_Location", "XForm", x_wing_root );
+    SetParmVal( wid, "Y_Rel_Location", "XForm", 0.0 );
+    SetParmVal( wid, "Z_Rel_Location", "XForm", z_wing );
+    SetParmVal( wid, "X_Rel_Rotation", "XForm", 0.0 );
+    SetParmVal( wid, "Y_Rel_Rotation", "XForm", 0.0 );
+    SetParmVal( wid, "Z_Rel_Rotation", "XForm", 0.0 );
+    Update();
+
+    // Grow from one section to four
+    InsertXSec( wid, 1, XS_FOUR_SERIES );
+    InsertXSec( wid, 1, XS_FOUR_SERIES );
+    InsertXSec( wid, 1, XS_FOUR_SERIES );
+    Update();
+
+    // Root incidence
+    SetParmVal( wid, "Twist", "XSec_0", tw_0 );
+    SetParmVal( wid, "Twist_Location", "XSec_0", 0.25 );
+    Update();
+
+    //               sect  span                    croot ctip  swp  swploc dih       twist tess
+    SetWingSection( wid, 1, y_flap_in,             c_0,  c_1,  0.0, 0.25,  dihedral, tw_1,  5 );
+    SetWingSection( wid, 2, y_flap_out - y_flap_in, c_1, c_2,  0.0, 0.25,  dihedral, tw_2, 17 );
+    SetWingSection( wid, 3, y_ail_in - y_flap_out,  c_2, c_3,  0.0, 0.25,  dihedral, tw_3,  3 );
+    SetWingSection( wid, 4, semi - y_ail_in,        c_3, c_4,  0.0, 0.25,  dihedral, tw_4,  9 );
+
+    // Actual NASA/Langley LS(1)-0417 (GA(W)-1), embedded at all five sections.
+    // No external .af/.dat file is required at run time.
+    SetLS10417( wid, 5 );
+
+    SetVSPAERORefWingID( wid );
+    Update();
+
+
+    //==========================================================================
+    // 3A. WING CARRY-THROUGH FAIRING  (correction AC-02)
+    //     Excluded from sets 3-6.  Carried only in the new hybrid sets 7-9.
+    //==========================================================================
+    string frid = "";
+    double fair_crown_used = fair_crown;
+
+    if ( BUILD_ROOT_FAIRING )
+    {
+        Print( " [2A/8] Wing carry-through fairing (AC-02)" );
+
+        if ( FAIRING_MODE == 2 )
+        {
+            array< double > yu_tab = LS0417_YU();
+            double yu_max = yu_tab[0];
+            for ( int k = 1; k < 38; k++ )
+            {
+                if ( yu_tab[k] > yu_max ) { yu_max = yu_tab[k]; }
+            }
+            fair_crown_used = z_wing + c_root * yu_max + fair_encl_marg;
+        }
+
+        frid = AddDorsalFairing( "WingRootFairing",
+                                 fair_x_nose, fair_x_full_fwd,
+                                 fair_x_full_aft, fair_x_tail,
+                                 fair_w, fair_crown_used, fair_keel,
+                                 0.5 * ( fair_crown_used + fair_keel ),
+                                 0.5 * ( fair_crown_used + fair_keel ) );
+    }
+
+
+    //==========================================================================
+    // 4.  HORIZONTAL TAIL
+    //==========================================================================
+    Print( " [3/8] Horizontal tail" );
+
+    string htid = AddGeom( "WING", "" );
+    SetGeomName( htid, "HTail" );
+    SetParmVal( htid, "Sym_Planar_Flag", "Sym", SYM_XZ );
+    SetParmVal( htid, "X_Rel_Location", "XForm", x_htail_root );
+    SetParmVal( htid, "Y_Rel_Location", "XForm", 0.0 );
+    SetParmVal( htid, "Z_Rel_Location", "XForm", z_tailplane );
+    Update();
+
+    SetParmVal( htid, "Twist", "XSec_0", 0.0 );
+    SetWingSection( htid, 1, semi_htail, cr_htail, ct_htail, 0.0, 0.25, 0.0, 0.0, 13 );
+    SetFourSeries( htid, 2, 0.0, 0.30, 0.12 );
+    Update();
+
+
+    //==========================================================================
+    // 4A. HORIZONTAL-TAIL CARRY-THROUGH FAIRING  (correction AC-03)
+    //     The HTail geometry, tail arm, incidence and exposed planform remain
+    //     unchanged.  Only the thick body used for hybrid trimming is added.
+    //==========================================================================
+    string tfrid = "";
+
+    if ( BUILD_TAIL_ROOT_FAIRING )
+    {
+        Print( " [3A/8] Horizontal-tail carry-through fairing (AC-03)" );
+        tfrid = AddDorsalFairing( "TailRootFairing",
+                                  tailfair_x_nose, tailfair_x_full_fwd,
+                                  tailfair_x_full_aft, tailfair_x_tail,
+                                  tailfair_w, tailfair_crown, tailfair_keel,
+                                  tailfair_nose_z, tailfair_tail_z );
+    }
+
+
+    //==========================================================================
+    // 5.  VERTICAL TAIL
+    //     WING Geom rotated +90 deg about X, planar symmetry off.
+    //     Root on the tail-cone crown, tip set by the 4.95 m overall height.
+    //==========================================================================
+    Print( " [4/8] Vertical tail" );
+
+    string vtid = AddGeom( "WING", "" );
+    SetGeomName( vtid, "VTail" );
+    SetParmVal( vtid, "Sym_Planar_Flag", "Sym", 0.0 );
+    SetParmVal( vtid, "X_Rel_Location", "XForm", x_vtail_root );
+    SetParmVal( vtid, "Y_Rel_Location", "XForm", 0.0 );
+    SetParmVal( vtid, "Z_Rel_Location", "XForm", z_tailplane );
+    SetParmVal( vtid, "X_Rel_Rotation", "XForm", 90.0 );
+    Update();
+
+    SetParmVal( vtid, "Twist", "XSec_0", 0.0 );
+    SetWingSection( vtid, 1, h_vtail, cr_vtail, ct_vtail, sweep_vtail, 0.25, 0.0, 0.0, 13 );
+    SetFourSeries( vtid, 2, 0.0, 0.30, 0.12 );
+    Update();
+
+
+    //==========================================================================
+    // 6.  NACELLES AND PROPELLERS
+    //     Separate left/right Geoms preserve the mirrored baseline shape while
+    //     allowing one propeller to be disabled later for OEI/VMC cases.
+    //==========================================================================
+    Print( " [5/8] Nacelles and propellers" );
+
+    // OpenVSP body axes: +Y is right/starboard, -Y is left/port.
+    string nacR = AddPackagedNacelle( "Nacelle_R", nac_x,  prop_y,
+                                      z_thrust, nac_len, nac_w, nac_h );
+    string nacL = AddPackagedNacelle( "Nacelle_L", nac_x, -prop_y,
+                                      z_thrust, nac_len, nac_w, nac_h );
+
+    string propR = AddAnalysisPropeller( "Prop_R", prop_x,  prop_y,
+                                         z_thrust, prop_D );
+    string propL = AddAnalysisPropeller( "Prop_L", prop_x, -prop_y,
+                                         z_thrust, prop_D );
+
+
+    //==========================================================================
+    // 7.  LIFT STRUTS
+    //     AC-01 adds buried end extensions for robust CompGeom intersection.
+    //     The nominal lower/upper attachment stations, 23.0 deg angle and
+    //     exposed 0.300-to-0.270 m tapered planform remain unchanged.
+    //==========================================================================
+    Print( " [6/8] Lift struts" );
+
+    string stid = AddGeom( "WING", "" );
+    SetGeomName( stid, "LiftStrut_Pair" );
+    SetParmVal( stid, "Sym_Planar_Flag", "Sym", SYM_XZ );
+    SetParmVal( stid, "X_Rel_Location", "XForm", x_strut );
+    SetParmVal( stid, "Y_Rel_Location", "XForm", y_strut_model_root );
+    SetParmVal( stid, "Z_Rel_Location", "XForm", z_strut_model_root );
+    Update();
+
+    // Three collinear sections preserve the frozen exposed strut exactly:
+    // buried lower extension + original strut + buried upper extension.
+    InsertXSec( stid, 1, XS_FOUR_SERIES );
+    InsertXSec( stid, 1, XS_FOUR_SERIES );
+    Update();
+
+    SetParmVal( stid, "Twist", "XSec_0", 0.0 );
+    SetWingSection( stid, 1, strut_pen_lower,
+                    strut_chord, strut_chord,
+                    0.0, 0.25, strut_angle, 0.0, 3 );
+    SetWingSection( stid, 2, strut_span,
+                    strut_chord, strut_chord * 0.90,
+                    0.0, 0.25, strut_angle, 0.0, 7 );
+    SetWingSection( stid, 3, strut_pen_upper,
+                    strut_chord * 0.90, strut_chord * 0.90,
+                    0.0, 0.25, strut_angle, 0.0, 3 );
+    SetFourSeries( stid, 4, 0.0, 0.30, 0.15 );
+    Update();
+
+
+    //==========================================================================
+    // 8.  FIXED TRICYCLE LANDING GEAR
+    //     Ground plane z = -1.400 m.  Legs are faired struts, wheels are
+    //     ellipsoidal stand-ins.  Excluded from the VSPAERO set below.
+    //==========================================================================
+    Print( " [7/8] Landing gear" );
+
+    double z_axle_main = z_ground + 0.5 * d_tyre_main;   // -1.100
+    double z_axle_nose = z_ground + 0.5 * d_tyre_nose;   // -1.150
+    double z_nose_leg_root = -0.640;
+    double nose_leg_span = z_nose_leg_root - z_axle_nose; // 0.510 m
+
+    // Main leg: fuselage lower corner out to the axle
+    double y_leg_root = 0.700;
+    double z_leg_root = -0.720;
+    double dy_leg = y_mgear - y_leg_root;
+    double dz_leg = z_axle_main - z_leg_root;
+    double leg_span = sqrt( dy_leg * dy_leg + dz_leg * dz_leg );
+    double leg_dihed = atan2( dz_leg, dy_leg ) * 180.0 / 3.14159265358979;
+
+    string mlg = AddGeom( "WING", "" );
+    SetGeomName( mlg, "MainGearLeg_Pair" );
+    SetParmVal( mlg, "Sym_Planar_Flag", "Sym", SYM_XZ );
+    SetParmVal( mlg, "X_Rel_Location", "XForm", x_mgear - 0.12 );
+    SetParmVal( mlg, "Y_Rel_Location", "XForm", y_leg_root );
+    SetParmVal( mlg, "Z_Rel_Location", "XForm", z_leg_root );
+    Update();
+    SetParmVal( mlg, "Twist", "XSec_0", 0.0 );
+    SetWingSection( mlg, 1, leg_span, 0.24, 0.18, 0.0, 0.25, leg_dihed, 0.0, 5 );
+    SetFourSeries( mlg, 2, 0.0, 0.30, 0.22 );
+    Update();
+
+    string mwh = AddGeom( "POD", "" );
+    SetGeomName( mwh, "MainWheel_Pair" );
+    SetParmVal( mwh, "Sym_Planar_Flag", "Sym", SYM_XZ );
+    SetParmVal( mwh, "X_Rel_Location", "XForm", x_mgear - 0.5 * d_tyre_main );
+    SetParmVal( mwh, "Y_Rel_Location", "XForm", y_mgear );
+    SetParmVal( mwh, "Z_Rel_Location", "XForm", z_axle_main );
+    SetParmVal( mwh, "Length", "Design", d_tyre_main );
+    SetParmVal( mwh, "FineRatio", "Design", d_tyre_main / 0.22 );
+    Update();
+
+    // Nose leg: vertical faired strut.
+    // Rotate the whole WING Geom downward; never use +/-90 deg section
+    // dihedral because that produces a projected-span singularity.
+    string nlg = AddGeom( "WING", "" );
+    SetGeomName( nlg, "NoseGearLeg" );
+    SetParmVal( nlg, "Sym_Planar_Flag", "Sym", 0.0 );
+    SetParmVal( nlg, "X_Rel_Location", "XForm", x_ngear - 0.10 );
+    SetParmVal( nlg, "Y_Rel_Location", "XForm", 0.0 );
+    SetParmVal( nlg, "Z_Rel_Location", "XForm", z_nose_leg_root );
+    SetParmVal( nlg, "X_Rel_Rotation", "XForm", -90.0 );
+    SetParmVal( nlg, "Y_Rel_Rotation", "XForm", 0.0 );
+    SetParmVal( nlg, "Z_Rel_Rotation", "XForm", 0.0 );
+    Update();
+    SetParmVal( nlg, "Twist", "XSec_0", 0.0 );
+    SetWingSection( nlg, 1, nose_leg_span, 0.22, 0.18,
+                    0.0, 0.25, 0.0, 0.0, 5 );
+    SetFourSeries( nlg, 2, 0.0, 0.30, 0.22 );
+    Update();
+
+    string nwh = AddGeom( "POD", "" );
+    SetGeomName( nwh, "NoseWheel" );
+    SetParmVal( nwh, "Sym_Planar_Flag", "Sym", 0.0 );
+    SetParmVal( nwh, "X_Rel_Location", "XForm", x_ngear - 0.5 * d_tyre_nose );
+    SetParmVal( nwh, "Y_Rel_Location", "XForm", 0.0 );
+    SetParmVal( nwh, "Z_Rel_Location", "XForm", z_axle_nose );
+    SetParmVal( nwh, "Length", "Design", d_tyre_nose );
+    SetParmVal( nwh, "FineRatio", "Design", d_tyre_nose / 0.18 );
+    Update();
+
+
+    //==========================================================================
+    // 9.  CONTROL SUB-SURFACES
+    //     u limits assume no end-cap parameter consumption.  Check them in the
+    //     GUI sub-surface tab before running control-derivative cases.
+    //==========================================================================
+    if ( ADD_CONTROL_SURFACES )
+    {
+        Print( " [8/8] Control sub-surfaces" );
+
+        // Aileron: wing section 4, y = 5.95 to 8.00 m, 25% chord
+        string ss_ail = AddSubSurf( wid, SS_CONTROL );
+        SetParmVal( GetParm( ss_ail, "UStart",         "SS_Control" ), 0.750 );
+        SetParmVal( GetParm( ss_ail, "UEnd",           "SS_Control" ), 0.978 );
+        SetParmVal( GetParm( ss_ail, "Length_C_Start", "SS_Control" ), 0.25 );
+        SetParmVal( GetParm( ss_ail, "Length_C_End",   "SS_Control" ), 0.25 );
+        SetParmVal( GetParm( ss_ail, "SE_Const_Flag",  "SS_Control" ), 1.0 );
+
+        // Double-slotted Fowler flap: wing section 2, y = 0.85 to 5.85 m
+        string ss_flp = AddSubSurf( wid, SS_CONTROL );
+        SetParmVal( GetParm( ss_flp, "UStart",         "SS_Control" ), 0.250 );
+        SetParmVal( GetParm( ss_flp, "UEnd",           "SS_Control" ), 0.500 );
+        SetParmVal( GetParm( ss_flp, "Length_C_Start", "SS_Control" ), 0.30 );
+        SetParmVal( GetParm( ss_flp, "Length_C_End",   "SS_Control" ), 0.30 );
+        SetParmVal( GetParm( ss_flp, "SE_Const_Flag",  "SS_Control" ), 1.0 );
+
+        // Elevator, 35% chord
+        string ss_ele = AddSubSurf( htid, SS_CONTROL );
+        SetParmVal( GetParm( ss_ele, "UStart",         "SS_Control" ), 0.120 );
+        SetParmVal( GetParm( ss_ele, "UEnd",           "SS_Control" ), 0.980 );
+        SetParmVal( GetParm( ss_ele, "Length_C_Start", "SS_Control" ), 0.35 );
+        SetParmVal( GetParm( ss_ele, "Length_C_End",   "SS_Control" ), 0.35 );
+        SetParmVal( GetParm( ss_ele, "SE_Const_Flag",  "SS_Control" ), 1.0 );
+
+        // Rudder, 40% chord
+        string ss_rud = AddSubSurf( vtid, SS_CONTROL );
+        SetParmVal( GetParm( ss_rud, "UStart",         "SS_Control" ), 0.030 );
+        SetParmVal( GetParm( ss_rud, "UEnd",           "SS_Control" ), 0.970 );
+        SetParmVal( GetParm( ss_rud, "Length_C_Start", "SS_Control" ), 0.40 );
+        SetParmVal( GetParm( ss_rud, "Length_C_End",   "SS_Control" ), 0.40 );
+        SetParmVal( GetParm( ss_rud, "SE_Const_Flag",  "SS_Control" ), 1.0 );
+
+        Update();
+    }
+
+
+    //==========================================================================
+    // 10. CUMULATIVE ANALYSIS SETS
+    //     No window or glazing Geoms exist anywhere in this build.
+    //==========================================================================
+    int set_g0 = 3;
+    int set_g1 = 4;
+    int set_g2 = 5;
+    int set_g3 = 6;
+
+    // Combined inspection / CompGeom sets retained from G1.4.
+    int set_h1 = 7;
+    int set_h2 = 8;
+    int set_h3 = 9;
+
+    // AC-02/AC-03 VSPAERO pairs.  Each Geom belongs on exactly one side of a
+    // hybrid run; the combined H1/H2/H3 sets above must NOT be selected in both
+    // the Thin and Thick dropdowns.
+    int set_h1_thin       = 10;
+    int set_h1_thick      = 11;
+    int set_ht_test_thin  = 12;
+    int set_ht_test_thick = 13;
+    int set_h2_thin       = 14;
+    int set_h2_thick      = 15;
+    int set_h3_thin       = 16;
+    int set_h3_thick      = 17;
+
+    bool have_h = ( GetNumSets() > set_h3_thick );
+
+    SetSetName( set_g0, "G0_BARE_AIRFRAME" );
+    SetSetName( set_g1, "G1_NACELLE_AIRFRAME" );
+    SetSetName( set_g2, "G2_COMPLETE_AIRFRAME" );
+    SetSetName( set_g3, "G3_POWERED_AIRCRAFT" );
+
+    if ( have_h )
+    {
+        SetSetName( set_h1, "H1_WINGBODY_FAIRED" );
+        SetSetName( set_h2, "H2_AIRFRAME_FAIRED" );
+        SetSetName( set_h3, "H3_COMPLETE_FAIRED" );
+        SetSetName( set_h1_thin,       "H1_THIN_MainWing" );
+        SetSetName( set_h1_thick,      "H1_THICK_Bodies" );
+        SetSetName( set_ht_test_thin,  "HT_TEST_THIN_HTail" );
+        SetSetName( set_ht_test_thick, "HT_TEST_THICK_Bodies" );
+        SetSetName( set_h2_thin,       "H2_THIN_Lifting" );
+        SetSetName( set_h2_thick,      "H2_THICK_Bodies" );
+        SetSetName( set_h3_thin,       "H3_THIN_Lifting" );
+        SetSetName( set_h3_thick,      "H3_THICK_Bodies" );
+    }
+
+    array< string > @all_geoms = FindGeoms();
+    for ( uint i = 0; i < all_geoms.size(); i++ )
+    {
+        SetSetFlag( all_geoms[i], set_g0, false );
+        SetSetFlag( all_geoms[i], set_g1, false );
+        SetSetFlag( all_geoms[i], set_g2, false );
+        SetSetFlag( all_geoms[i], set_g3, false );
+        if ( have_h )
+        {
+            SetSetFlag( all_geoms[i], set_h1, false );
+            SetSetFlag( all_geoms[i], set_h2, false );
+            SetSetFlag( all_geoms[i], set_h3, false );
+            SetSetFlag( all_geoms[i], set_h1_thin, false );
+            SetSetFlag( all_geoms[i], set_h1_thick, false );
+            SetSetFlag( all_geoms[i], set_ht_test_thin, false );
+            SetSetFlag( all_geoms[i], set_ht_test_thick, false );
+            SetSetFlag( all_geoms[i], set_h2_thin, false );
+            SetSetFlag( all_geoms[i], set_h2_thick, false );
+            SetSetFlag( all_geoms[i], set_h3_thin, false );
+            SetSetFlag( all_geoms[i], set_h3_thick, false );
+        }
+    }
+
+    // G0: fuselage and primary aerodynamic surfaces only.
+    SetSetFlag( fid,  set_g0, true );
+    SetSetFlag( wid,  set_g0, true );
+    SetSetFlag( htid, set_g0, true );
+    SetSetFlag( vtid, set_g0, true );
+
+    // G1: G0 plus both nacelle OMLs.
+    // API order is CopyPasteSet(copyIndex, pasteIndex).
+    CopyPasteSet( set_g0, set_g1 );
+    SetSetFlag( nacL, set_g1, true );
+    SetSetFlag( nacR, set_g1, true );
+
+    // G2: complete unpowered aircraft, including fixed gear and lift struts.
+    CopyPasteSet( set_g1, set_g2 );
+    SetSetFlag( stid, set_g2, true );
+    SetSetFlag( mlg,  set_g2, true );
+    SetSetFlag( mwh,  set_g2, true );
+    SetSetFlag( nlg,  set_g2, true );
+    SetSetFlag( nwh,  set_g2, true );
+
+    // G3: G2 plus two independently addressable propellers.
+    CopyPasteSet( set_g2, set_g3 );
+    SetSetFlag( propL, set_g3, true );
+    SetSetFlag( propR, set_g3, true );
+    Update();
+
+    // ---- AC-02 / AC-03 hybrid and inspection sets ---------------------------
+    // Both carry-through fairings appear ONLY here.  Sets 3-6 above retain
+    // their frozen G1.3 membership.
+    int h1_expect = 2;
+    int h2_expect = 4;
+    int h3_expect = 11;
+
+    if ( have_h )
+    {
+        // H1: the diagnostic that previously failed - wing plus body only.
+        SetSetFlag( fid, set_h1, true );
+        SetSetFlag( wid, set_h1, true );
+
+        // H2: wing/body plus empennage and both topology corrections.
+        SetSetFlag( fid,  set_h2, true );
+        SetSetFlag( wid,  set_h2, true );
+        SetSetFlag( htid, set_h2, true );
+        SetSetFlag( vtid, set_h2, true );
+
+        // H3: complete unpowered airframe with the fairing installed, for an
+        // optional CompGeom / Parasite Drag re-baseline if AC-02 is adopted
+        // into the production geometry.
+        CopyPasteSet( set_g2, set_h3 );
+
+        if ( BUILD_ROOT_FAIRING )
+        {
+            SetSetFlag( frid, set_h1, true );
+            SetSetFlag( frid, set_h2, true );
+            SetSetFlag( frid, set_h3, true );
+            h1_expect = 3;
+            h2_expect = 5;
+            h3_expect = 12;
+        }
+
+        if ( BUILD_TAIL_ROOT_FAIRING )
+        {
+            SetSetFlag( tfrid, set_h2, true );
+            SetSetFlag( tfrid, set_h3, true );
+            h2_expect += 1;
+            h3_expect += 1;
+        }
+
+        // H1 pair: the already validated Mode-2 main-wing repair.
+        SetSetFlag( wid, set_h1_thin, true );
+        SetSetFlag( fid, set_h1_thick, true );
+        if ( BUILD_ROOT_FAIRING ) { SetSetFlag( frid, set_h1_thick, true ); }
+
+        // Isolated AC-03 smoke test: run this pair before rebuilding H2.
+        SetSetFlag( htid, set_ht_test_thin, true );
+        SetSetFlag( fid, set_ht_test_thick, true );
+        if ( BUILD_TAIL_ROOT_FAIRING ) { SetSetFlag( tfrid, set_ht_test_thick, true ); }
+
+        // H2 pair: lifting surfaces thin, all body/carry-through surfaces thick.
+        SetSetFlag( wid,  set_h2_thin, true );
+        SetSetFlag( htid, set_h2_thin, true );
+        SetSetFlag( vtid, set_h2_thin, true );
+        SetSetFlag( fid,  set_h2_thick, true );
+        if ( BUILD_ROOT_FAIRING )      { SetSetFlag( frid, set_h2_thick, true ); }
+        if ( BUILD_TAIL_ROOT_FAIRING ) { SetSetFlag( tfrid, set_h2_thick, true ); }
+
+        // H3 pair: optional complete-aircraft escalation after HT_TEST and H2.
+        SetSetFlag( wid,  set_h3_thin, true );
+        SetSetFlag( htid, set_h3_thin, true );
+        SetSetFlag( vtid, set_h3_thin, true );
+        SetSetFlag( stid, set_h3_thin, true );
+
+        SetSetFlag( fid,  set_h3_thick, true );
+        SetSetFlag( nacL, set_h3_thick, true );
+        SetSetFlag( nacR, set_h3_thick, true );
+        SetSetFlag( mlg,  set_h3_thick, true );
+        SetSetFlag( mwh,  set_h3_thick, true );
+        SetSetFlag( nlg,  set_h3_thick, true );
+        SetSetFlag( nwh,  set_h3_thick, true );
+        if ( BUILD_ROOT_FAIRING )      { SetSetFlag( frid, set_h3_thick, true ); }
+        if ( BUILD_TAIL_ROOT_FAIRING ) { SetSetFlag( tfrid, set_h3_thick, true ); }
+        Update();
+    }
+
+    // Default VSPAERO to the complete unpowered configuration.
+    string vspaero_settings = FindContainer( "VSPAEROSettings", 0 );
+    if ( vspaero_settings != "" )
+    {
+        string geomset_parm = FindParm( vspaero_settings, "GeomSet", "VSPAERO" );
+        if ( geomset_parm != "" )
+        {
+            SetParmVal( geomset_parm, set_g2 );
+        }
+    }
+    Update();
+
+
+    //==========================================================================
+    // 11. SAVE
+    //==========================================================================
+    string outfile = "Tyche_R2T1_G1_5_ANALYSIS.vsp3";
+    SetVSP3FileName( outfile );
+    WriteVSPFile( GetVSPFileName(), SET_ALL );
+
+
+    //==========================================================================
+    // 12. VERIFICATION AGAINST THE REPORT
+    //==========================================================================
+    double vsp_area = GetParmVal( wid, "TotalArea", "WingGeom" );
+    double vsp_span = GetParmVal( wid, "TotalSpan", "WingGeom" );
+    double vsp_ar   = GetParmVal( wid, "TotalAR",   "WingGeom" );
+
+    double Vh = S_htail * tail_arm / ( S_wing * MAC );
+    double Vv = S_vtail * tail_arm / ( S_wing * b_wing );
+    double prop_clear_ground = ( z_thrust - 0.5 * prop_D ) - z_ground;
+    double nac_eq_dia = sqrt( nac_w * nac_h );
+    double nac_frontal_area = 3.14159265358979 * nac_w * nac_h / 4.0;
+    double old_nac_frontal_area = 3.14159265358979 * 0.800 * 0.800 / 4.0;
+    double x_tailstrike = 0.850 * fuse_len;
+    double z_tailstrike = z_tailplane - 0.5 * 0.800;
+    double tail_strike_deg = atan2( z_tailstrike - z_ground,
+                                    x_tailstrike - x_mgear ) *
+                             180.0 / 3.14159265358979;
+    double prop_fuse_clear_nominal = 0.035;  // m, measured 3-D model gap
+    double prop_radial_minimum = 0.025;      // m, CS 23.925(d)(1)
+    double prop_clear_margin = prop_fuse_clear_nominal - prop_radial_minimum;
+
+    Print( "----------------------------------------------------------------" );
+    Print( " GEOMETRY VERIFICATION" );
+    Print( "----------------------------------------------------------------" );
+    Print( " Wing area, m2            : " + formatFloat( vsp_area, "", 0, 4 ) + "   report 30.0000" );
+    Print( " Wing span, m             : " + formatFloat( vsp_span, "", 0, 4 ) + "   report 16.4000" );
+    Print( " Aspect ratio             : " + formatFloat( vsp_ar,   "", 0, 4 ) + "   report  8.9700" );
+    Print( " MAC, m                   : " + formatFloat( MAC, "", 0, 4 ) + "   report  1.8810" );
+    Print( " MAC LE station, m        : " + formatFloat( x_LE_MAC, "", 0, 4 ) + "   report  3.0500" );
+    Print( " Tail arm c/4-c/4, m      : " + formatFloat( tail_arm, "", 0, 4 ) + "   report  5.9000" );
+    Print( " Horizontal tail volume Vh: " + formatFloat( Vh, "", 0, 4 ) + "   report  0.8900" );
+    Print( " Vertical tail volume   Vv: " + formatFloat( Vv, "", 0, 4 ) + "   report  0.0480" );
+    Print( " Overall length, m        : " + formatFloat( fuse_len, "", 0, 4 ) + "   report  9.7000  <-- see note 1" );
+    Print( " Overall height, m        : " + formatFloat( z_fin_tip - z_ground, "", 0, 4 ) + "   report  4.9500" );
+    Print( " Main gear track, m       : " + formatFloat( track, "", 0, 4 ) + "   report  3.9000" );
+    Print( " Nose-gear leg span, m    : " + formatFloat( nose_leg_span, "", 0, 4 ) + "   root-to-axle" );
+    Print( " Tail attachment datum, m : " + formatFloat( z_tailplane, "", 0, 4 ) + "   fuselage/tails closed" );
+    Print( " Prop ground clearance, m : " + formatFloat( prop_clear_ground, "", 0, 4 ) );
+    Print( " Nacelle length, m         : " + formatFloat( nac_len, "", 0, 3 ) + "   old 3.550 (-38.0%)" );
+    Print( " Nacelle max width, m      : " + formatFloat( nac_w, "", 0, 3 ) + "   old 0.800 (-15.0%)" );
+    Print( " Nacelle max height, m     : " + formatFloat( nac_h, "", 0, 3 ) );
+    Print( " Nacelle equiv. dia., m    : " + formatFloat( nac_eq_dia, "", 0, 3 ) );
+    Print( " Nacelle fineness L/Deq    : " + formatFloat( nac_len / nac_eq_dia, "", 0, 3 ) );
+    Print( " Nacelle frontal area, m2  : " + formatFloat( nac_frontal_area, "", 0, 3 ) +
+           "   old " + formatFloat( old_nac_frontal_area, "", 0, 3 ) + " (-21.4%)" );
+    Print( " Tail-strike angle, deg    : " +
+           formatFloat( tail_strike_deg, "", 0, 2 ) +
+           "   minimum 15.1; control FS " +
+           formatFloat( x_tailstrike, "", 0, 3 ) );
+    Print( " Prop-fuselage gap, m      : " +
+           formatFloat( prop_fuse_clear_nominal, "", 0, 3 ) +
+           "   nominal 3-D model measurement" );
+    Print( " CS 23.925(d)(1) floor, m  : " +
+           formatFloat( prop_radial_minimum, "", 0, 3 ) +
+           "   nominal margin " +
+           formatFloat( prop_clear_margin, "", 0, 3 ) );
+    Print( " Fuselage XSecs           : 7      nacelle-optimized baseline" );
+    Print( " Main-wing airfoil        : LS(1)-0417, embedded 38+38 points" );
+    Print( " Window/glazing Geoms     : 0      deliberately omitted" );
+    Print( " Default VSPAERO set      : G2_COMPLETE_AIRFRAME" );
+    Print( " Powered prop mode        : PROP_BOTH (four blades + actuator disk)" );
+    Print( "----------------------------------------------------------------" );
+    Print( " AC-02  WING-ROOT INTERSECTION AUDIT" );
+    Print( " Root chord " + formatFloat( c_root, "", 0, 4 ) +
+           " m, chord plane z = " + formatFloat( z_wing, "", 0, 4 ) +
+           " m, FS " + formatFloat( x_wing_root, "", 0, 3 ) +
+           " to " + formatFloat( x_wing_root + c_root, "", 0, 3 ) );
+    Print( "" );
+    PrintIntersectionAudit( "A. Bare cabin crown - the G1.3 condition",
+                            z_wing, c_root, 0.5 * fuse_h );
+    if ( BUILD_ROOT_FAIRING )
+    {
+        string mode_txt = "blended";
+        if ( FAIRING_MODE == 2 ) { mode_txt = "enclosed"; }
+        PrintIntersectionAudit( "B. WingRootFairing installed, mode " +
+                                formatInt( FAIRING_MODE ) + " (" + mode_txt + ")",
+                                z_wing, c_root, fair_crown_used );
+        Print( " Fairing half-width " + formatFloat( 0.5 * fair_w, "", 0, 3 ) +
+               " m versus cabin half-width " + formatFloat( 0.5 * fuse_w, "", 0, 3 ) +
+               " m; side walls cut the crown transversally." );
+        Print( " Fairing stands " +
+               formatFloat( fair_crown_used - 0.5 * fuse_h, "", 0, 3 ) +
+               " m proud of the cabin crown; both end points are buried." );
+    }
+    else
+    {
+        Print( " BUILD_ROOT_FAIRING = false: G1.3 reproduced, defect A stands." );
+    }
+    Print( "----------------------------------------------------------------" );
+    Print( " AC-03  HORIZONTAL-TAIL ROOT INTERSECTION AUDIT" );
+    Print( " HTail root chord         : " + formatFloat( cr_htail, "", 0, 4 ) + " m" );
+    Print( " HTail chord plane z      : " + formatFloat( z_tailplane, "", 0, 4 ) + " m" );
+    Print( " Physical NACA 0012 limits: z " +
+           formatFloat( z_tailplane - htail_half_thick, "", 0, 4 ) + " to " +
+           formatFloat( z_tailplane + htail_half_thick, "", 0, 4 ) + " m" );
+    Print( " G1.4 failed root chord   : 0.1031 m, then 1.6792 m (16.3:1 jump)" );
+    if ( BUILD_TAIL_ROOT_FAIRING )
+    {
+        Print( " TailRootFairing mode     : " + formatInt( TAIL_FAIRING_MODE ) );
+        Print( " Fairing crown / keel     : " +
+               formatFloat( tailfair_crown, "", 0, 4 ) + " / " +
+               formatFloat( tailfair_keel, "", 0, 4 ) + " m" );
+        Print( " Top / bottom clearance   : " +
+               formatFloat( tailfair_crown - ( z_tailplane + htail_half_thick ), "", 0, 4 ) +
+               " / " +
+               formatFloat( ( z_tailplane - htail_half_thick ) - tailfair_keel, "", 0, 4 ) + " m" );
+        Print( " Fairing half-width       : " +
+               formatFloat( 0.5 * tailfair_w, "", 0, 3 ) + " m" );
+        Print( " Full section FS          : " +
+               formatFloat( tailfair_x_full_fwd, "", 0, 3 ) + " to " +
+               formatFloat( tailfair_x_full_aft, "", 0, 3 ) + " m" );
+        Print( " Buried nose point        : FS " +
+               formatFloat( tailfair_x_nose, "", 0, 3 ) + ", z " +
+               formatFloat( tailfair_nose_z, "", 0, 3 ) + " m" );
+        Print( " Aft analysis cap FS      : " +
+               formatFloat( tailfair_x_tail, "", 0, 3 ) + " m (" +
+               formatFloat( tailfair_x_tail - fuse_len, "", 0, 3 ) +
+               " m beyond frozen fuselage point)" );
+        Print( " [PASS] Complete HTail root is enclosed and exits side walls." );
+        Print( " [CHECK] Confirm the first exposed .lod chord is O(1 m) and" );
+        Print( "         the root wake clears the aft fairing cap." );
+    }
+    else
+    {
+        Print( " [FAIL] BUILD_TAIL_ROOT_FAIRING = false reproduces the G1.4" );
+        Print( "        zero-penetration HTail / tail-cone topology." );
+    }
+    if ( TAIL_CONE_RISE != 0.0 )
+    {
+        Print( " [NOTICE] TAIL_CONE_RISE is non-zero; frozen fuselage OML," );
+        Print( "          CompGeom and PDT results are no longer applicable." );
+    }
+    Print( "----------------------------------------------------------------" );
+    Print( " SET AUDIT" );
+    PrintSetAudit( set_g0, 4 );
+    PrintSetAudit( set_g1, 6 );
+    PrintSetAudit( set_g2, 11 );
+    PrintSetAudit( set_g3, 13 );
+    if ( have_h )
+    {
+        PrintSetAudit( set_h1, h1_expect );
+        PrintSetAudit( set_h2, h2_expect );
+        PrintSetAudit( set_h3, h3_expect );
+        int h1_thick_expect = 1;
+        int ht_thick_expect = 1;
+        int h2_thick_expect = 1;
+        int h3_thick_expect = 7;
+        if ( BUILD_ROOT_FAIRING )
+        {
+            h1_thick_expect += 1;
+            h2_thick_expect += 1;
+            h3_thick_expect += 1;
+        }
+        if ( BUILD_TAIL_ROOT_FAIRING )
+        {
+            ht_thick_expect += 1;
+            h2_thick_expect += 1;
+            h3_thick_expect += 1;
+        }
+        PrintSetAudit( set_h1_thin, 1 );
+        PrintSetAudit( set_h1_thick, h1_thick_expect );
+        PrintSetAudit( set_ht_test_thin, 1 );
+        PrintSetAudit( set_ht_test_thick, ht_thick_expect );
+        PrintSetAudit( set_h2_thin, 3 );
+        PrintSetAudit( set_h2_thick, h2_thick_expect );
+        PrintSetAudit( set_h3_thin, 4 );
+        PrintSetAudit( set_h3_thick, h3_thick_expect );
+    }
+    else
+    {
+        Print( " [CHECK] Fewer than 18 sets available; hybrid pairs not created." );
+    }
+    Print( "----------------------------------------------------------------" );
+    Print( " PROPELLER CLEARANCE STATUS" );
+    Print( " Inboard blade tip station, |y| = " +
+           formatFloat( prop_y - 0.5 * prop_D, "", 0, 3 ) +
+           " m; disc plane FS " + formatFloat( prop_x, "", 0, 2 ) + " m." );
+    Print( " Nominal 3-D radial gap = 0.035 m; geometric margin = 0.010 m." );
+    Print( " COMPLIANCE OPEN: add blade/mount deflection, vibration," );
+    Print( " tolerances and the most-adverse operating-condition allowance." );
+    Print( "----------------------------------------------------------------" );
+    Print( " ANALYSIS ROUTING" );
+    Print( " Parasite Drag Tool : G0, G1 and G2; difference CD0 values." );
+    Print( " VSPAERO unpowered  : G2 for lift, induced drag and stability." );
+    Print( " VSPAERO powered    : G3 with PROP_BOTH; assign each disk." );
+    Print( " Do not use VLM G1-G0 as nacelle parasite-drag increment." );
+    Print( " Sets 3-6 are unchanged from G1.3.  All frozen results stand." );
+    Print( " AC-02 confirmation : Thin=H1_THIN_MainWing;" );
+    Print( "                      Thick=H1_THICK_Bodies." );
+    Print( " AC-03 first run    : Thin=HT_TEST_THIN_HTail;" );
+    Print( "                      Thick=HT_TEST_THICK_Bodies." );
+    Print( "                      alpha=4 deg, 20 iterations, 16 wake nodes." );
+    Print( "                      Require a smooth O(1 m) root chord and" );
+    Print( "                      ordinary c_l, c_di and c_m before H2." );
+    Print( " H2 after HT pass   : Thin=H2_THIN_Lifting; Thick=H2_THICK_Bodies." );
+    Print( " H3 escalation      : Thin=H3_THIN_Lifting; Thick=H3_THICK_Bodies." );
+    Print( " Never select the same combined H set as both Thin and Thick." );
+    Print( " AC-02/03 rebaseline: H3_COMPLETE_FAIRED only if both fairings" );
+    Print( "                      are adopted; that requires a new" );
+    Print( "                      CompGeom and Parasite Drag build-up and a" );
+    Print( "                      recorded delta against the 141.591 m2 and" );
+    Print( "                      CD0 = 0.018985 G2 baseline." );
+    Print( "----------------------------------------------------------------" );
+    Print( " Saved: " + outfile );
+
+    if ( GetNumTotalErrors() == 0 )
+    {
+        Print( " [SUCCESS] No OpenVSP API errors." );
+    }
+    else
+    {
+        Print( " [NOTICE] OpenVSP API messages follow:" );
+        while ( GetNumTotalErrors() > 0 )
+        {
+            ErrorObj err = PopLastError();
+            Print( err.GetErrorString() );
+        }
+    }
+    Print( "================================================================" );
+}
